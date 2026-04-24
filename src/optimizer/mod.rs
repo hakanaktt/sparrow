@@ -17,6 +17,7 @@ pub mod separator;
 mod worker;
 pub mod explore;
 pub mod compress;
+pub mod problem;
 
 ///Algorithm 11 from https://doi.org/10.48550/arXiv.2509.13329
 pub fn optimize(

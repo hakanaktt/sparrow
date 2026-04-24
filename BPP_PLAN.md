@@ -66,7 +66,7 @@
 
 ---
 
-## Stage 1 — Trait abstraction (no behavior change) ⬜
+## Stage 1 — Trait abstraction (no behavior change) ✅
 
 **Why:** Decouple the optimizer from `SPProblem` without touching algorithms.
 
@@ -103,6 +103,15 @@
 ### Deliverables
 - New `src/optimizer/problem.rs`.
 - Existing tests still pass unchanged.
+
+### Stage 1 result (2026-04-24)
+- Added [src/optimizer/problem.rs](src/optimizer/problem.rs): `PackingProblem`, `StripCapacity`, `BinCapacity` traits + `SPProblem` impl.
+  - `LayoutKey` is an associated type (`()` for SPP, will be `LayKey` for BPP) — adjusted from the original plan to match jagua-rs's slotmap-keyed layouts.
+  - Note: `change_strip_width(_, split_pos)` (the item-shifting variant) is **not** on the trait — it lives on `Separator` because it manipulates collision-tracker state, not just the strip. The trait's `change_strip_width` mirrors `SPProblem::change_strip_width` (single arg).
+- [src/optimizer/mod.rs](src/optimizer/mod.rs): added `pub mod problem;` (only line changed).
+- New unit test `optimizer::problem::tests::spp_satisfies_packing_problem_trait` ✅
+- `cargo build --all-targets` ✅
+- `cargo test --release --tests` → 3 passed, 0 failed (full integration suite, no regression).
 
 ---
 

@@ -85,6 +85,42 @@ fn main() -> anyhow::Result<()> {
     assert_eq!(prob.n_placed_items(), 1);
     println!("[smoke] restore() round-tripped successfully");
 
+    // ---- 3. Drive the BPP LBF construction heuristic on the same instance ----
+    let bpp_instance2 = {
+        // Re-build a fresh instance — we already moved `bpp_instance` into `prob`.
+        let raw2 = fs::read_to_string("data/input/swim.json")?;
+        let ext_spp2: ExtSPInstance = serde_json::from_str(&raw2)?;
+        let spp_instance2 = jagua_rs::probs::spp::io::import_instance(&importer, &ext_spp2)?;
+        let spp_prob2 = jagua_rs::probs::spp::entities::SPProblem::new(spp_instance2.clone());
+        let mut c = spp_prob2.layout.container.clone();
+        c.id = 0;
+        let bins = vec![Bin::new(c, spp_instance2.total_item_qty(), 0)];
+        let items: Vec<_> = spp_instance2.items.iter().cloned().collect();
+        BPInstance::new(items, bins)
+    };
+
+    use rand::SeedableRng;
+    use sparrow::consts::LBF_SAMPLE_CONFIG;
+    use sparrow::optimizer::bpp::lbf::BPLBFBuilder;
+
+    let total_demand = bpp_instance2.total_item_qty();
+    let rng = rand::rngs::Xoshiro256PlusPlus::seed_from_u64(0);
+    let builder = BPLBFBuilder::new(bpp_instance2, rng, LBF_SAMPLE_CONFIG)
+        .construct()
+        .map_err(|e| anyhow::anyhow!("BPLBFBuilder failed: {:?}", e))?;
+    let n_layouts = builder.prob.layouts.len();
+    let n_placed = builder.prob.n_placed_items();
+    let density = builder.prob.density();
+    println!(
+        "[smoke] BPLBFBuilder: placed {}/{} items into {} bin(s), density = {:.3}",
+        n_placed, total_demand, n_layouts, density
+    );
+    assert_eq!(
+        n_placed, total_demand,
+        "BPLBFBuilder did not place every item"
+    );
+    assert!(n_layouts >= 1, "at least one bin should be opened");
+
     println!("[smoke] OK");
     Ok(())
 }

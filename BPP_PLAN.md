@@ -156,23 +156,31 @@
 
 ---
 
-## Stage 3 — BPP problem impl + LBF builder ⬜
+## Stage 3 — BPP problem impl + LBF builder ✅
 
-### Tasks
-1. **3.1** Implement `PackingProblem + BinCapacity` for `BPProblem`.
-2. **3.2** Make [src/optimizer/lbf.rs](src/optimizer/lbf.rs) generic: `LBFBuilder<P>`.
-3. **3.3** Introduce a small strategy trait for "what to do when an item won't fit":
-   ```rust
-   trait CapacityFailureStrategy<P> {
-       fn on_place_failure(&self, prob: &mut P, item_id: usize) -> Result<(), &'static str>;
-   }
-   ```
-   - SPP impl: `prob.change_strip_width(prob.strip_width() * 1.2)`.
-   - BPP impl: pick a bin type (best historical density, or smallest that fits item bounding circle) and `prob.open_bin(...)`. Returns `Err` if no bin type can possibly hold the item.
-4. **3.4** Smoke test: build initial BPP solution from a tiny synthetic instance.
+### Tasks (revised — see "Stage 3 result" for the deviation rationale)
+1. **3.1** Implement `PackingProblem + BinCapacity` for `BPProblem`. ✅
+2. **3.2** Create [src/optimizer/bpp/lbf.rs](src/optimizer/bpp/lbf.rs) with a dedicated `BPLBFBuilder` (parallel-tree approach from Stage 2's revised scope). ✅
+3. **3.3** Smoke test: drive `BPLBFBuilder::construct()` on `swim.json` from `examples/bpp_smoke.rs`. ✅
+4. **3.4** Build + full integration suite green; mark plan. ✅
 
 ### Deliverables
 - Working BPP construction; produces a feasible (possibly bin-count-suboptimal) initial solution.
+
+### Stage 3 result
+
+**Outcome:** All four substages landed cleanly.
+
+- **3.1 — Trait impls.** [src/optimizer/problem.rs](src/optimizer/problem.rs) now contains `impl PackingProblem for BPProblem` (with `LayoutKey = LayKey`, `Solution = BPSolution`, `Placement = BPPlacement`) and `impl BinCapacity for BPProblem`. Implementations are thin pass-throughs over jagua-rs's existing `BPProblem` API. The associated `Self::LayoutKey` design from Stage 1 was confirmed sufficient — no trait reshaping needed.
+- **3.2 — `BPLBFBuilder`.** [src/optimizer/bpp/lbf.rs](src/optimizer/bpp/lbf.rs) implements First-Fit Decreasing:
+  - Items sorted by `convex_hull_area * diameter` desc (same key as SPP).
+  - For each item: try open layouts in ascending free-area order (tightest fit first), using `LBFEvaluator` + `search_placement` per layout.
+  - On no-fit: open the cheapest bin type with stock remaining. The placement search runs against a **scratch `Layout::new(container.clone())`** (an empty stand-in for the to-be-opened bin), then the resulting transform is committed via `BPProblem::place_item(BPPlacement { layout_id: BPLayoutType::Closed { bin_id }, .. })`. This sidesteps the chicken-and-egg of `BPProblem` having no "open empty layout" API — `Closed { bin_id }` always inserts an item, so we needed a feasible transform *before* opening the bin.
+  - Failure modes: `BPLBFError::ItemDoesNotFitAnyBin` (no available bin can hold the item) and `OutOfBinStock` (all bin types exhausted).
+- **3.3 — Smoke test.** Extended [examples/bpp_smoke.rs](examples/bpp_smoke.rs) to run the builder on `data/input/swim.json` (10 item types, 48 total demand) using a single bin type cloned from the swim strip container. Result: `placed 48/48 items into 2 bin(s), density = 0.500`. The low density is expected — the strip-shaped "bin" is much wider than the items need, so per-bin fill is poor; this is purely a construction smoke test, not a packing-quality benchmark.
+- **3.4 — Verification.** `cargo build --all-targets` clean (zero warnings). `cargo test --release --tests -- --test-threads=1` → 1 lib test + 3 integration tests + 0 in `bench`/`sparrow` bin tests, all green. **Zero SPP regression.**
+
+**Key API observation discovered during 3.2:** `BPProblem::place_item(BPPlacement { layout_id: BPLayoutType::Closed { bin_id }, .. })` is atomic — it both opens the new layout and inserts the item in one call. There is no public way to construct an empty layout inside `BPProblem` without an item. The scratch-`Layout` trick (build a free-standing `Layout::new(container.clone())`, run placement search against it, then commit) is the cleanest workaround and worth remembering for Stage 4 (where exploration may want similar "what-if-we-opened-this-bin?" probes).
 
 ---
 

@@ -14,6 +14,7 @@ use rand::rngs::Xoshiro256PlusPlus;
 
 pub mod problem;
 pub mod spp;
+pub mod bpp;
 
 /// Strip Packing Problem optimizer.
 ///

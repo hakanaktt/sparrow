@@ -20,6 +20,9 @@
 //!   only exposes single-arg `change_strip_width`).
 
 use jagua_rs::entities::{Layout, PItemKey};
+use jagua_rs::probs::bpp::entities::{
+    BPInstance, BPPlacement, BPProblem, BPSolution, LayKey,
+};
 use jagua_rs::probs::spp::entities::{SPInstance, SPPlacement, SPProblem, SPSolution};
 
 /// Generic packing-problem interface shared by SPP and BPP.
@@ -162,6 +165,77 @@ impl StripCapacity for SPProblem {
     #[inline]
     fn fit_strip(&mut self) {
         SPProblem::fit_strip(self)
+    }
+}
+
+// ----------------------------------------------------------------------------
+// BPProblem implementation
+// ----------------------------------------------------------------------------
+
+impl PackingProblem for BPProblem {
+    type Instance = BPInstance;
+    type Solution = BPSolution;
+    type Placement = BPPlacement;
+    type LayoutKey = LayKey;
+
+    #[inline]
+    fn instance(&self) -> &BPInstance {
+        &self.instance
+    }
+
+    #[inline]
+    fn n_layouts(&self) -> usize {
+        self.layouts.len()
+    }
+
+    fn layout_keys(&self) -> Box<dyn Iterator<Item = LayKey> + '_> {
+        Box::new(self.layouts.keys())
+    }
+
+    #[inline]
+    fn layout(&self, key: LayKey) -> &Layout {
+        &self.layouts[key]
+    }
+
+    #[inline]
+    fn layout_mut(&mut self, key: LayKey) -> &mut Layout {
+        &mut self.layouts[key]
+    }
+
+    fn place_item(&mut self, placement: BPPlacement) -> (LayKey, PItemKey) {
+        BPProblem::place_item(self, placement)
+    }
+
+    fn remove_item(&mut self, key: LayKey, pik: PItemKey) -> BPPlacement {
+        BPProblem::remove_item(self, key, pik)
+    }
+
+    fn save(&self) -> BPSolution {
+        BPProblem::save(self)
+    }
+
+    fn restore(&mut self, solution: &BPSolution) {
+        BPProblem::restore(self, solution);
+    }
+
+    fn density(&self) -> f32 {
+        BPProblem::density(self)
+    }
+
+    fn n_placed_items(&self) -> usize {
+        BPProblem::n_placed_items(self)
+    }
+}
+
+impl BinCapacity for BPProblem {
+    #[inline]
+    fn n_bins_used(&self) -> usize {
+        self.layouts.len()
+    }
+
+    #[inline]
+    fn close_layout(&mut self, key: LayKey) {
+        BPProblem::remove_layout(self, key);
     }
 }
 

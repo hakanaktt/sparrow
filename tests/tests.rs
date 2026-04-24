@@ -4,10 +4,10 @@ mod integration_tests {
     use jagua_rs::io::import::Importer;
     use sparrow::config::DEFAULT_SPARROW_CONFIG;
     use sparrow::consts::LBF_SAMPLE_CONFIG;
-    use sparrow::optimizer::compress::compression_phase;
-    use sparrow::optimizer::explore::exploration_phase;
-    use sparrow::optimizer::lbf::LBFBuilder;
-    use sparrow::optimizer::separator::Separator;
+    use sparrow::optimizer::spp::compress::compression_phase;
+    use sparrow::optimizer::spp::explore::exploration_phase;
+    use sparrow::optimizer::spp::lbf::LBFBuilder;
+    use sparrow::optimizer::spp::separator::Separator;
     use sparrow::util::io;
     use sparrow::util::terminator::BasicTerminator;
     use sparrow::util::terminator::Terminator;

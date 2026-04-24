@@ -5,7 +5,7 @@ use jagua_rs::io::import::Importer;
 use log::{info, warn, Level};
 use rand::SeedableRng;
 use sparrow::config::*;
-use sparrow::optimizer::optimize;
+use sparrow::optimizer::optimize_spp;
 use sparrow::util::io;
 use sparrow::util::io::{ExtSPOutput, MainCli};
 use sparrow::EPOCH;
@@ -108,8 +108,7 @@ fn main() -> Result<()>{
     
     let mut ctrlc_terminator = CtrlCTerminator::new();
 
-    let solution = optimize(
-        instance.clone(),
+    let solution = optimize_spp(        instance.clone(),
         rng,
         &mut svg_exporter,
         &mut ctrlc_terminator,

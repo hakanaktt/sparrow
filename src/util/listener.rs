@@ -1,8 +1,11 @@
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use crate::optimizer::problem::PackingProblem;
 
-/// Trait for listeners that can receive solutions during the optimization process
-pub trait SolutionListener {
-    fn report(&mut self, report: ReportType, solution: &SPSolution, instance: &SPInstance);
+/// Trait for listeners that can receive solutions during the optimization process.
+///
+/// Generic over the packing-problem type `P` so that both SPP and BPP solutions
+/// (and any future variant) can share the same listener mechanism.
+pub trait SolutionListener<P: PackingProblem> {
+    fn report(&mut self, report: ReportType, solution: &P::Solution, instance: &P::Instance);
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,14 +19,16 @@ pub enum ReportType {
     /// Report contains a feasible solution from the comparison phase.
     CmprFeas,
     /// Report contains the final solution
-    Final
+    Final,
 }
 
 /// A dummy implementation of the `SolutionListener` trait that does nothing.
+///
+/// Generic so it works for any problem type without per-problem dummy structs.
 pub struct DummySolListener;
 
-impl SolutionListener for DummySolListener {
-    fn report(&mut self, _report: ReportType, _solution: &SPSolution, _instance: &SPInstance) {
+impl<P: PackingProblem> SolutionListener<P> for DummySolListener {
+    fn report(&mut self, _report: ReportType, _solution: &P::Solution, _instance: &P::Instance) {
         // Do nothing
     }
 }

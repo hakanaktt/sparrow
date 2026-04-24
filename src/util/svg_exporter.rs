@@ -2,7 +2,7 @@ use crate::consts::DRAW_OPTIONS;
 use crate::util::io;
 use crate::util::listener::{ReportType, SolutionListener};
 use jagua_rs::io::svg::s_layout_to_svg;
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use jagua_rs::probs::spp::entities::{SPInstance, SPProblem, SPSolution};
 use log::Level;
 use std::path::Path;
 pub struct SvgExporter {
@@ -36,7 +36,7 @@ impl SvgExporter {
     }
 }
 
-impl SolutionListener for SvgExporter{
+impl SolutionListener<SPProblem> for SvgExporter{
     fn report(&mut self, report_type: ReportType, solution: &SPSolution, instance: &SPInstance) {
         let suffix = match report_type {
             ReportType::CmprFeas => "cmpr",

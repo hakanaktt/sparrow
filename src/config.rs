@@ -1,4 +1,4 @@
-use crate::optimizer::separator::SeparatorConfig;
+use crate::optimizer::spp::separator::SeparatorConfig;
 use crate::sample::search::SampleConfig;
 use jagua_rs::collision_detection::CDEConfig;
 use jagua_rs::geometry::fail_fast::SPSurrogateConfig;

@@ -1,9 +1,9 @@
 use crate::config::*;
 use crate::consts::LBF_SAMPLE_CONFIG;
-use crate::optimizer::compress::compression_phase;
-use crate::optimizer::explore::exploration_phase;
-use crate::optimizer::lbf::LBFBuilder;
-use crate::optimizer::separator::Separator;
+use crate::optimizer::spp::compress::compression_phase;
+use crate::optimizer::spp::explore::exploration_phase;
+use crate::optimizer::spp::lbf::LBFBuilder;
+use crate::optimizer::spp::separator::Separator;
 use crate::util::listener::{ReportType, SolutionListener};
 use crate::util::terminator::Terminator;
 use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
@@ -12,18 +12,16 @@ use rand::{Rng, SeedableRng};
 use std::time::Duration;
 use rand::rngs::Xoshiro256PlusPlus;
 
-pub mod lbf;
-pub mod separator;
-mod worker;
-pub mod explore;
-pub mod compress;
 pub mod problem;
+pub mod spp;
 
-///Algorithm 11 from https://doi.org/10.48550/arXiv.2509.13329
-pub fn optimize(
+/// Strip Packing Problem optimizer.
+///
+/// Algorithm 11 from <https://doi.org/10.48550/arXiv.2509.13329>.
+pub fn optimize_spp(
     instance: SPInstance,
     mut rng: Xoshiro256PlusPlus,
-    sol_listener: &mut impl SolutionListener,
+    sol_listener: &mut impl SolutionListener<jagua_rs::probs::spp::entities::SPProblem>,
     terminator: &mut impl Terminator,
     expl_config: &ExplorationConfig,
     cmpr_config: &CompressionConfig,

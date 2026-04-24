@@ -115,7 +115,7 @@
 
 ---
 
-## Stage 2 — Generify the problem-agnostic core ⬜
+## Stage 2 — Generify the problem-agnostic core ✅ (revised scope)
 
 **Why:** Make `Separator`, `SeparatorWorker`, and `SolutionListener` generic over `P: PackingProblem` while keeping SPP behavior identical.
 
@@ -132,9 +132,27 @@
 - `CollisionTracker` per-layout split affects all hot paths; profile after.
 - Some `move_items_multi` logic may currently assume a single CT — audit carefully.
 
-### Deliverables
+### Deliverables (original plan)
 - Generic `Separator`, `SeparatorWorker`, `SolutionListener`.
 - SPP behavior bit-identical (or near-identical) to baseline.
+
+### Stage 2 result (2026-04-24) — executed with **revised, leaner scope**
+
+**Deviation from the original plan.** After reading the separator/worker code carefully, full generification of `Separator<P>` was judged premature complexity for these reasons:
+- `Separator`'s SPP-specific operations (`change_strip_width` with item-shifting at a split position, single `CollisionTracker`, `rollback` checking `strip_width` equality) are deeply baked into the algorithmic flow.
+- BPP's separator will be fundamentally different in Stage 4 (per-layout CTs, bin-removal not strip-shrink, no horizontal-shift split). Forcing one generic type across both yields awkward enum-like dispatch with no genuine reuse.
+- The truly shared parts ([src/eval/](src/eval/), [src/quantify/](src/quantify/), [src/sample/](src/sample/)) are **already** problem-agnostic — they operate on `Layout` + `Item`, not on `Separator` or `Problem`.
+
+**What was actually delivered:**
+- **2A** [src/util/listener.rs](src/util/listener.rs): `SolutionListener<P: PackingProblem>` is now generic; `DummySolListener` is also generic. Updated all 5 consumer sites ([optimizer/mod.rs](src/optimizer/mod.rs), [optimizer/spp/separator.rs](src/optimizer/spp/separator.rs), [optimizer/spp/explore.rs](src/optimizer/spp/explore.rs), [optimizer/spp/compress.rs](src/optimizer/spp/compress.rs), [util/svg_exporter.rs](src/util/svg_exporter.rs)).
+- **2B** Carved out an `optimizer::spp` submodule. Moved `lbf.rs`, `separator.rs`, `worker.rs`, `explore.rs`, `compress.rs` under [src/optimizer/spp/](src/optimizer/spp/) with a new [src/optimizer/spp/mod.rs](src/optimizer/spp/mod.rs). Updated all path references in [src/config.rs](src/config.rs), [src/main.rs](src/main.rs), [src/bench.rs](src/bench.rs), [tests/tests.rs](tests/tests.rs), and the cross-references inside the moved files.
+- **2C** Renamed `optimize` → `optimize_spp` in [src/optimizer/mod.rs](src/optimizer/mod.rs) and [src/main.rs](src/main.rs). Stage 5 will add `optimize_bpp` and a thin dispatcher.
+
+**Verification:**
+- `cargo build --all-targets` ✅
+- `cargo test --release --tests -- --test-threads=1` ✅ (3/3 integration tests + 1/1 lib test pass; same as baseline)
+
+**Implication for later stages:** Stage 3 will create a parallel [src/optimizer/bpp/](src/optimizer/bpp/) tree (with its own `lbf.rs`, `separator.rs`, etc.). The duplication of separator code is intentional — the algorithms differ enough that sharing via a single generic `Separator<P>` would obscure both implementations. Where genuinely shared utilities emerge (e.g. CT loss aggregation), they can be extracted later.
 
 ---
 

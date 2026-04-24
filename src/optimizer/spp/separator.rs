@@ -1,4 +1,4 @@
-use crate::optimizer::worker::{SepStats, SeparatorWorker};
+use crate::optimizer::spp::worker::{SepStats, SeparatorWorker};
 use crate::optimizer::Terminator;
 use crate::quantify::tracker::{CTSnapshot, CollisionTracker};
 use crate::sample::search::SampleConfig;
@@ -69,7 +69,7 @@ impl Separator {
     }
 
     /// Algorithm 9 from https://doi.org/10.48550/arXiv.2509.13329
-    pub fn separate(&mut self, term: &impl Terminator, sol_listener: &mut impl SolutionListener) -> (SPSolution, CTSnapshot) {
+    pub fn separate(&mut self, term: &impl Terminator, sol_listener: &mut impl SolutionListener<SPProblem>) -> (SPSolution, CTSnapshot) {
         let mut min_loss_sol = (self.prob.save(), self.ct.save());
         let mut min_loss = self.ct.get_total_loss();
         log!(self.config.log_level,"[SEP] separating at width: {:.3} and loss: {} ", self.prob.strip_width(), FMT().fmt2(min_loss));

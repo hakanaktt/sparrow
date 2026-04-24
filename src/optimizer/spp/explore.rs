@@ -1,5 +1,5 @@
 use crate::config::ExplorationConfig;
-use crate::optimizer::separator::{Separator, SeparatorConfig};
+use crate::optimizer::spp::separator::{Separator, SeparatorConfig};
 use crate::sample::uniform_sampler::convert_sample_to_closest_feasible;
 use crate::util::listener::{ReportType, SolutionListener};
 use crate::util::terminator::Terminator;
@@ -9,7 +9,7 @@ use itertools::Itertools;
 use jagua_rs::collision_detection::hazards::HazardEntity;
 use jagua_rs::entities::{Instance, Layout, PItemKey};
 use jagua_rs::geometry::geo_traits::CollidesWith;
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use jagua_rs::probs::spp::entities::{SPInstance, SPProblem, SPSolution};
 use log::{debug, info, warn};
 use ordered_float::OrderedFloat;
 use rand::prelude::{Distribution, IteratorRandom};
@@ -18,7 +18,7 @@ use slotmap::SecondaryMap;
 use std::cmp::Reverse;
 
 /// Algorithm 12 from https://doi.org/10.48550/arXiv.2509.13329
-pub fn exploration_phase(instance: &SPInstance, sep: &mut Separator, sol_listener: &mut impl SolutionListener, term: &impl Terminator, config: &ExplorationConfig) -> Vec<SPSolution> {
+pub fn exploration_phase(instance: &SPInstance, sep: &mut Separator, sol_listener: &mut impl SolutionListener<SPProblem>, term: &impl Terminator, config: &ExplorationConfig) -> Vec<SPSolution> {
     let mut current_width = sep.prob.strip_width();
     let mut best_width = current_width;
 

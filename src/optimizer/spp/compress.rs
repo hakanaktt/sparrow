@@ -1,8 +1,8 @@
 use crate::config::{CompressionConfig, ShrinkDecayStrategy};
-use crate::optimizer::separator::Separator;
+use crate::optimizer::spp::separator::Separator;
 use crate::util::listener::{ReportType, SolutionListener};
 use crate::util::terminator::Terminator;
-use jagua_rs::probs::spp::entities::{SPInstance, SPSolution};
+use jagua_rs::probs::spp::entities::{SPInstance, SPProblem, SPSolution};
 use jagua_rs::Instant;
 use log::info;
 use rand::{Rng, RngExt};
@@ -12,7 +12,7 @@ pub fn compression_phase(
     instance: &SPInstance,
     sep: &mut Separator,
     init_sol: &SPSolution,
-    sol_listener: &mut impl SolutionListener,
+    sol_listener: &mut impl SolutionListener<SPProblem>,
     term: &impl Terminator,
     config: &CompressionConfig
 ) -> SPSolution {
@@ -54,7 +54,7 @@ pub fn compression_phase(
 }
 
 
-fn attempt_to_compress(sep: &mut Separator, init_sol: &SPSolution, r_shrink: f32, term: &impl Terminator, sol_listener: &mut impl SolutionListener) -> Option<SPSolution> {
+fn attempt_to_compress(sep: &mut Separator, init_sol: &SPSolution, r_shrink: f32, term: &impl Terminator, sol_listener: &mut impl SolutionListener<SPProblem>) -> Option<SPSolution> {
     // Restore to the initial solution and width
     sep.change_strip_width(init_sol.strip_width(), None);
     sep.rollback(init_sol, None);

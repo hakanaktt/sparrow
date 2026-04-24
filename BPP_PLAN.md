@@ -184,34 +184,55 @@
 
 ---
 
-## Stage 4 — BPP exploration & compression algorithms ⬜
+## Stage 4 — BPP exploration & compression algorithms ✅
 
 **Why:** Strip-shrink has no analog. Need new algorithms that drive bin count down using Sparrow's overlap-proxy machinery.
 
-### 4.1 Exploration: `src/optimizer/explore_bpp.rs`
+### 4.1 Exploration: `src/optimizer/bpp/explore.rs` ✅
 Loop until time/iter budget exhausted:
 1. Pick the **least-loaded bin** $b^*$ (by area density).
 2. Snapshot solution.
-3. Free all items in $b^*$ → `close_bin(b*)`.
+3. Free all items in $b^*$ → `remove_layout(b*)`.
 4. Re-insert each freed item by injecting it into the **best-fit** remaining bin (allowing initial overlap).
-5. Run `Separator::separate()` to resolve overlaps under the existing overlap-proxy + adaptive-weight scheme.
-6. If feasible within budget → accept (one fewer bin); else rollback and either:
-   - try a different bin to remove,
-   - escalate (increase iter budget),
-   - or terminate exploration.
+5. Run `BPSeparator::separate()` to resolve overlaps under the existing overlap-proxy + adaptive-weight scheme.
+6. If feasible within budget → accept (one fewer bin); else rollback and blacklist this bin for the rest of the run.
 
-### 4.2 Compression: `src/optimizer/compress_bpp.rs`
-Operate on already-feasible layout. Cheap moves:
-- **Bin-emptying**: greedy attempt to evacuate the emptiest bin into others (short separator burst).
-- **Bin-merging**: pick two low-density bins, virtually treat as one doubled-capacity bin, separate, accept if all fit in one physical bin.
+### 4.2 Compression: `src/optimizer/bpp/compress.rs` ⬜ (deferred to Stage 5+)
+Strip-shrink has no direct BPP analog. Plausible BPP analogs (bin-emptying, bin-merging) are deferred to a later iteration so Stage 4 lands a working end-to-end pipeline first. The orchestrator [`optimize_bpp`](src/optimizer/mod.rs) currently runs LBF → exploration only.
 
 ### 4.3 Config
-Add to [src/config.rs](src/config.rs):
-- `BppExplorationConfig { bin_removal_attempts, attempt_iter_budget, ... }`
-- `BppCompressionConfig { merge_attempts, evacuation_iter_budget, ... }`
+- `BPExplorationConfig { max_bin_removal_attempts, time_limit }` lives in [src/optimizer/bpp/explore.rs](src/optimizer/bpp/explore.rs) for v1. The exploration reuses `SeparatorConfig` from the SPP module (it carries iteration limits + sample config that apply unchanged).
 
-### Deliverables
-- Two new files plus config additions; SPP modules untouched.
+### Stage 4 result
+
+**Outcome:** End-to-end BPP pipeline lands. Smoke test runs LBF + exploration on swim.json without panic.
+
+**Files added/changed:**
+- [src/optimizer/bpp/separator.rs](src/optimizer/bpp/separator.rs) — `BPSeparator` with a per-layout `SecondaryMap<LayKey, CollisionTracker>` and `BPSepSnapshot` (problem snapshot + per-layout CT snapshots). Sequential single-layout sweeps; reuses `SeparationEvaluator` and `search::search_placement` unchanged.
+- [src/optimizer/bpp/explore.rs](src/optimizer/bpp/explore.rs) — `bpp_exploration` + `BPExplorationConfig`. Best-fit injection (largest item first into the layout with most free area), LBF search per item with a centroid-fallback for overlap-tolerant placement, blacklist of failed-removal layouts.
+- [src/optimizer/mod.rs](src/optimizer/mod.rs) — `optimize_bpp(instance, rng, sol_listener, terminator, expl_config, sep_config) -> BPSolution`. Pipeline: `BPLBFBuilder::construct` → `BPSeparator::new` → `bpp_exploration`.
+- [examples/bpp_smoke.rs](examples/bpp_smoke.rs) — extended with a fourth section that drives `optimize_bpp` end-to-end.
+
+**V1 limitations (intentional, recorded in source comments):**
+1. **Serial separator.** The SPP separator uses a rayon `SeparatorWorker` pool that races N copies and keeps the best. The BPP separator runs one sweep per layout in sequence. Parallelism (per-layout or per-worker) is a Stage 6+ optimization.
+2. **No cross-bin moves inside the separator.** Items only relocate across bins via the exploration phase's redistribution step. This matches the cross-cutting risk #2 in the plan.
+3. **Single-item layouts are not separated.** A move = `remove_item` + `place_item`; if the layout had only one item, `remove_item` auto-closes the layout and invalidates its `LayKey`, breaking CT bookkeeping. The separator skips such layouts (a single-item layout has no pair collisions and any container collision would need cross-bin movement to resolve, which is the exploration's job).
+4. **No compression phase.** Skipped for v1; the orchestrator goes straight from exploration to `Final` report.
+5. **Simple blacklist.** Once a bin fails removal, it's skipped for the remainder of the run. There's no infeasible-solution pool / disrupt mechanism (the SPP analog has no obvious BPP shape: in BPP the "current state" is a set of bins, not a width).
+
+**Smoke test outcome (`cargo run --release --example bpp_smoke`):**
+- Section 1-2: BPInstance build + place/save/restore round-trip — OK.
+- Section 3: `BPLBFBuilder` placed 48/48 swim items into 2 bins at density 0.500 — OK.
+- Section 4: `optimize_bpp` ran LBF then 4 bin-removal attempts. Final bin count remained 2 — **expected**: the swim items at strip-shaped containers fill each bin to ~50%, so dropping to 1 bin would require 100% density, which is geometrically infeasible. The exploration correctly attempted, failed, rolled back, and blacklisted. No panics, no item loss, separator state stayed coherent across snapshot+restore cycles.
+
+**Verification:**
+- `cargo build --all-targets` — clean, zero warnings.
+- `cargo test --release --tests -- --test-threads=1` — 1 lib test + 3 integration tests (shirts, swim, trousers), all green. **Zero SPP regression.**
+
+**Key API observations from this stage** (worth carrying into Stage 5+):
+- `BPProblem::remove_layout(lkey)` works as documented; it cleanly drops the layout and frees demand counters.
+- `BPSolution::layout_snapshots.len()` is the canonical "how many bins are open" measure post-restore — much cheaper than walking the problem.
+- `BPSepSnapshot` (problem snapshot + per-layout CT snapshots) needs to handle both **stale** keys (layout removed since snapshot) and **missing** keys (layout opened since snapshot) on restore. The current implementation rebuilds CTs from scratch for any layout that doesn't have a snapshot entry — correct but conservative; could be optimized later.
 
 ---
 

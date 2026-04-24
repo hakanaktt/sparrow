@@ -73,3 +73,44 @@ pub fn optimize_spp(
     // Return the final compressed solution
     cmpr_sol
 }
+
+/// Bin Packing Problem optimizer.
+///
+/// V1 pipeline: LBF construction → bin-removal exploration. The compression
+/// phase has no direct BPP analog yet (strip-shrink is SPP-specific) and is
+/// deferred to a later iteration.
+pub fn optimize_bpp(
+    instance: jagua_rs::probs::bpp::entities::BPInstance,
+    mut rng: Xoshiro256PlusPlus,
+    sol_listener: &mut impl SolutionListener<jagua_rs::probs::bpp::entities::BPProblem>,
+    terminator: &mut impl Terminator,
+    expl_config: &crate::optimizer::bpp::explore::BPExplorationConfig,
+    sep_config: crate::optimizer::spp::separator::SeparatorConfig,
+) -> jagua_rs::probs::bpp::entities::BPSolution {
+    use crate::optimizer::bpp::explore::bpp_exploration;
+    use crate::optimizer::bpp::lbf::BPLBFBuilder;
+    use crate::optimizer::bpp::separator::BPSeparator;
+
+    let mut next_rng = || Xoshiro256PlusPlus::seed_from_u64(rng.next_u64());
+
+    // 1. LBF construction.
+    info!("[OPT-BPP] constructing initial solution via LBF");
+    let lbf_builder = BPLBFBuilder::new(instance.clone(), next_rng(), LBF_SAMPLE_CONFIG)
+        .construct()
+        .expect("BPP LBF construction failed");
+    let start_prob = lbf_builder.prob;
+    info!(
+        "[OPT-BPP] LBF placed {} item(s) into {} bin(s)",
+        start_prob.n_placed_items(),
+        start_prob.layouts.len()
+    );
+
+    // 2. Exploration: bin-removal loop.
+    terminator.new_timeout(expl_config.time_limit);
+    let mut sep = BPSeparator::new(instance.clone(), start_prob, next_rng(), sep_config);
+    let solutions = bpp_exploration(&mut sep, sol_listener, terminator, expl_config);
+    let final_sol = solutions.last().expect("at least the initial solution is feasible").clone();
+
+    sol_listener.report(ReportType::Final, &final_sol, &instance);
+    final_sol
+}

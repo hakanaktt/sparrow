@@ -121,6 +121,79 @@ fn main() -> anyhow::Result<()> {
     );
     assert!(n_layouts >= 1, "at least one bin should be opened");
 
+    // ---- 4. End-to-end optimize_bpp (LBF + bin-removal exploration) ----
+    let bpp_instance3 = {
+        let raw3 = fs::read_to_string("data/input/swim.json")?;
+        let ext_spp3: ExtSPInstance = serde_json::from_str(&raw3)?;
+        let spp_instance3 = jagua_rs::probs::spp::io::import_instance(&importer, &ext_spp3)?;
+        let spp_prob3 = jagua_rs::probs::spp::entities::SPProblem::new(spp_instance3.clone());
+        let mut c = spp_prob3.layout.container.clone();
+        c.id = 0;
+        // Use a smaller bin to make bin-removal interesting (less wasted strip area).
+        // Halve the width so each bin is roughly square-ish.
+        // (Container is immutable through public API, so leave it as-is for v1.)
+        let bins = vec![Bin::new(c, spp_instance3.total_item_qty(), 0)];
+        let items: Vec<_> = spp_instance3.items.iter().cloned().collect();
+        BPInstance::new(items, bins)
+    };
+
+    use sparrow::optimizer::bpp::explore::BPExplorationConfig;
+    use sparrow::optimizer::optimize_bpp;
+    use sparrow::optimizer::spp::separator::SeparatorConfig;
+    use sparrow::sample::search::SampleConfig;
+    use sparrow::util::listener::DummySolListener;
+    use sparrow::util::terminator::BasicTerminator;
+    use std::time::Duration;
+
+    let sep_config = SeparatorConfig {
+        iter_no_imprv_limit: 30,
+        strike_limit: 2,
+        n_workers: 1, // unused for BPP v1 (separator is serial)
+        log_level: log::Level::Debug,
+        sample_config: SampleConfig {
+            n_container_samples: 30,
+            n_focussed_samples: 15,
+            n_coord_descents: 2,
+        },
+    };
+    let expl_config = BPExplorationConfig {
+        max_bin_removal_attempts: 4,
+        time_limit: Duration::from_secs(30),
+    };
+    let rng2 = rand::rngs::Xoshiro256PlusPlus::seed_from_u64(42);
+    let mut term = BasicTerminator::new();
+    let mut sol_listener = DummySolListener;
+    let initial_n_bins = {
+        // Quick LBF pass to know the starting bin count for the assertion.
+        use sparrow::consts::LBF_SAMPLE_CONFIG;
+        use sparrow::optimizer::bpp::lbf::BPLBFBuilder;
+        let rng_pre = rand::rngs::Xoshiro256PlusPlus::seed_from_u64(42);
+        let b = BPLBFBuilder::new(bpp_instance3.clone(), rng_pre, LBF_SAMPLE_CONFIG)
+            .construct()
+            .map_err(|e| anyhow::anyhow!("preflight LBF failed: {:?}", e))?;
+        b.prob.layouts.len()
+    };
+
+    let final_sol = optimize_bpp(
+        bpp_instance3,
+        rng2,
+        &mut sol_listener,
+        &mut term,
+        &expl_config,
+        sep_config,
+    );
+    let final_n_bins = final_sol.layout_snapshots.len();
+    println!(
+        "[smoke] optimize_bpp: final {} bin(s) (started from {} after LBF)",
+        final_n_bins, initial_n_bins
+    );
+    assert!(
+        final_n_bins <= initial_n_bins,
+        "optimize_bpp should not increase the bin count ({} -> {})",
+        initial_n_bins,
+        final_n_bins
+    );
+
     println!("[smoke] OK");
     Ok(())
 }

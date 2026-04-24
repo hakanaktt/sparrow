@@ -5,3 +5,5 @@
 //! (notably: opening/closing bins instead of resizing a strip).
 
 pub mod lbf;
+pub mod separator;
+pub mod explore;

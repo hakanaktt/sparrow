@@ -1,14 +1,29 @@
+use crate::optimizer::bpp::explore::BPExplorationConfig;
 use crate::optimizer::spp::separator::SeparatorConfig;
 use crate::sample::search::SampleConfig;
 use jagua_rs::collision_detection::CDEConfig;
 use jagua_rs::geometry::fail_fast::SPSurrogateConfig;
 use std::time::Duration;
 
+/// Which packing problem variant the optimizer should solve.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProblemKind {
+    /// Strip Packing Problem.
+    Spp,
+    /// Bin Packing Problem.
+    Bpp,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct SparrowConfig {
     pub rng_seed: Option<usize>,
     pub expl_cfg: ExplorationConfig,
     pub cmpr_cfg: CompressionConfig,
+    /// Configuration for the BPP exploration phase.
+    pub bpp_expl_cfg: BPExplorationConfig,
+    /// Separator configuration used for BPP. SPP has its own per-phase
+    /// separator configs (one inside `expl_cfg`, one inside `cmpr_cfg`).
+    pub bpp_sep_cfg: SeparatorConfig,
     /// Configuration for the collision detection engine.
     /// See [`CDEConfig`] for more details.
     pub cde_config: CDEConfig,
@@ -54,6 +69,21 @@ pub enum ShrinkDecayStrategy {
 
 pub const DEFAULT_SPARROW_CONFIG: SparrowConfig = SparrowConfig {
     rng_seed: None,
+    bpp_expl_cfg: BPExplorationConfig {
+        max_bin_removal_attempts: 64,
+        time_limit: Duration::from_secs(9 * 60),
+    },
+    bpp_sep_cfg: SeparatorConfig {
+        iter_no_imprv_limit: 200,
+        strike_limit: 3,
+        log_level: log::Level::Info,
+        n_workers: 1,
+        sample_config: SampleConfig {
+            n_container_samples: 50,
+            n_focussed_samples: 25,
+            n_coord_descents: 3,
+        },
+    },
     expl_cfg: ExplorationConfig {
         shrink_step: 0.001,
         time_limit: Duration::from_secs(9 * 60),

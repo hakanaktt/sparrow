@@ -1,6 +1,8 @@
 use crate::EPOCH;
 use anyhow::{Context, Result};
 use clap::Parser;
+use jagua_rs::probs::bpp::io::ext_repr::ExtBPInstance;
+use jagua_rs::probs::bpp::io::ext_repr::ExtBPSolution;
 use jagua_rs::probs::spp::io::ext_repr::{ExtSPInstance, ExtSPSolution};
 use log::{log, Level, LevelFilter};
 use serde::{Deserialize, Serialize};
@@ -34,6 +36,9 @@ pub struct MainCli {
 
     #[arg(short = 's', long, help = "Fixed seed for the random number generator")]
     pub rng_seed: Option<u64>,
+
+    #[arg(short = 'm', long, help = "Minimum separation distance between items and any other hazard (items, bin border, holes). Same units as the input geometry. Overrides the config default when set.")]
+    pub min_item_separation: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -41,6 +46,30 @@ pub struct ExtSPOutput {
     #[serde(flatten)]
     pub instance: ExtSPInstance,
     pub solution: ExtSPSolution,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ExtBPOutput {
+    #[serde(flatten)]
+    pub instance: ExtBPInstance,
+    pub solution: ExtBPSolution,
+}
+
+/// Result of loading an arbitrary instance JSON file. The variant is decided
+/// by sniffing distinguishing top-level fields:
+/// - `strip_height` present → SPP
+/// - `bins` present → BPP
+///
+/// For SPP, an optional warm-start solution is also returned (BPP warm-start
+/// is unsupported by jagua-rs 0.7.1 — see Stage 0 findings in BPP_PLAN.md).
+pub enum LoadedInstance {
+    Spp {
+        ext_instance: ExtSPInstance,
+        ext_solution: Option<ExtSPSolution>,
+    },
+    Bpp {
+        ext_instance: ExtBPInstance,
+    },
 }
 
 pub fn init_logger(level_filter: LevelFilter, log_file_path: &Path) -> Result<()> {
@@ -124,5 +153,51 @@ pub fn read_spp_input(path: &Path) -> Result<(ExtSPInstance, Option<ExtSPSolutio
                 .context("could not parse instance from input file")?;
             Ok((ext_instance, None))
         }
+    }
+}
+
+pub fn read_bpp_input(path: &Path) -> Result<ExtBPInstance> {
+    let input_str = fs::read_to_string(path).context("could not read input file")?;
+    let ext_instance = serde_json::from_str::<ExtBPInstance>(&input_str)
+        .context("could not parse BPP instance from input file")?;
+    Ok(ext_instance)
+}
+
+/// Load any supported instance JSON. Sniffs the top-level shape to decide
+/// between SPP and BPP. For BPP, only instance loading is supported (no
+/// warm-start in jagua-rs 0.7.1).
+pub fn read_input(path: &Path) -> Result<LoadedInstance> {
+    let input_str = fs::read_to_string(path).context("could not read input file")?;
+    let raw: serde_json::Value =
+        serde_json::from_str(&input_str).context("input file is not valid JSON")?;
+
+    let obj = raw
+        .as_object()
+        .context("input JSON must be an object at the top level")?;
+
+    if obj.contains_key("bins") {
+        let ext_instance: ExtBPInstance = serde_json::from_str(&input_str)
+            .context("input has top-level `bins` but failed to parse as ExtBPInstance")?;
+        Ok(LoadedInstance::Bpp { ext_instance })
+    } else if obj.contains_key("strip_height") || obj.contains_key("strip_width") {
+        // Try full output (instance + solution warm start) first; fall back to instance-only.
+        match serde_json::from_str::<ExtSPOutput>(&input_str) {
+            Ok(ext_output) => Ok(LoadedInstance::Spp {
+                ext_instance: ext_output.instance,
+                ext_solution: Some(ext_output.solution),
+            }),
+            Err(_) => {
+                let ext_instance: ExtSPInstance = serde_json::from_str(&input_str)
+                    .context("input has top-level `strip_height` but failed to parse as ExtSPInstance")?;
+                Ok(LoadedInstance::Spp {
+                    ext_instance,
+                    ext_solution: None,
+                })
+            }
+        }
+    } else {
+        anyhow::bail!(
+            "input JSON does not look like an SPP (no `strip_height`) or BPP instance (no `bins`)"
+        )
     }
 }

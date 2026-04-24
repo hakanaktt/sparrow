@@ -236,7 +236,7 @@ Strip-shrink has no direct BPP analog. Plausible BPP analogs (bin-emptying, bin-
 
 ---
 
-## Stage 5 — Wiring: config, IO, CLI, SVG ⬜
+## Stage 5 — Wiring: config, IO, CLI, SVG ✅
 
 ### Tasks
 1. **5.1** [src/config.rs](src/config.rs): `enum ProblemKind { Spp, Bpp }` and parallel config blocks.
@@ -245,6 +245,38 @@ Strip-shrink has no direct BPP analog. Plausible BPP analogs (bin-emptying, bin-
 4. **5.4** [src/util/svg_exporter.rs](src/util/svg_exporter.rs): for BPP, emit `final_{name}_bin_{i}.svg` per layout plus an index file.
 5. **5.5** [src/bench.rs](src/bench.rs): add `--problem` flag; primary KPI becomes `final_strip_width` (SPP) or `final_bin_count` + `total_used_area` (BPP).
 6. **5.6** Delete `examples/bpp_smoke.rs` (or keep as a doctest fixture).
+
+### Stage 5 result
+
+**Date:** 2026-04-24 · **Outcome:** the sparrow CLI now auto-detects SPP vs BPP from the input JSON and runs the appropriate pipeline end-to-end. Build clean, all existing tests still green, and a real BPP run on a derived `swim_bpp.json` finishes with a valid 2-bin solution + per-bin SVG export + JSON output.
+
+#### Files changed
+- [src/config.rs](src/config.rs): added `pub enum ProblemKind { Spp, Bpp }`; added `bpp_expl_cfg: BPExplorationConfig` and `bpp_sep_cfg: SeparatorConfig` fields to `SparrowConfig`; populated defaults in `DEFAULT_SPARROW_CONFIG` (BPP exploration: `max_bin_removal_attempts: 64`, `time_limit: 9 min`; BPP separator: same defaults as SPP — `iter_no_imprv_limit: 200`, `strike_limit: 3`, `n_workers: 1`, sample config `50/25/3`).
+- [src/util/io.rs](src/util/io.rs): added `pub struct ExtBPOutput { instance, solution }` (with `#[serde(flatten)]`), `pub enum LoadedInstance { Spp { ext_instance, ext_solution }, Bpp { ext_instance } }`, `pub fn read_bpp_input(path)` and `pub fn read_input(path) -> Result<LoadedInstance>`. Sniffing: presence of top-level `bins` → BPP; otherwise `strip_height`/`strip_width` → SPP (with optional warm-start by trying `ExtSPOutput` first, falling back to `ExtSPInstance`); else `bail!`. `read_spp_input` retained for `bench.rs` consumers.
+- [src/util/svg_exporter.rs](src/util/svg_exporter.rs): added `impl SolutionListener<BPProblem> for SvgExporter` that emits one SVG per layout. Filename pattern: intermediate snapshots `{counter}_{n_bins}b_{suffix}_bin_{i}.svg`, final `{stem}_bin_{i}.svg`. Live-viewer single-doc path uses the first layout only. SPP impl unchanged.
+- [src/main.rs](src/main.rs): refactored body into `run_spp(...)` / `run_bpp(...)` / `build_svg_exporter(name)` helpers. The dispatch matches on `LoadedInstance`. For BPP the `bpp_expl_cfg.time_limit` is set to `explore_dur + compress_dur` (BPP has no compression phase yet, so the full time budget feeds exploration). BPP run writes `ExtBPOutput` JSON via `bpp::io::export(&instance, &solution, *EPOCH)`.
+- [data/input/swim_bpp.json](data/input/swim_bpp.json): new BPP fixture derived from `swim.json` by replacing `strip_height` with a square bin sized 5752×5752, `stock=1000`, `cost=1`, `name="swim_bpp"`. Items unchanged (10 types, total demand 48).
+- [tools/make_bpp_input.ps1](tools/make_bpp_input.ps1): tiny helper that converts an SPP instance to a BPP one by text-substituting `strip_height` → `bins`. Keeps coordinate precision intact (raw text rewrite, no JSON round-trip).
+
+#### Files NOT changed (intentional)
+- `src/bench.rs`: still SPP-only (uses `read_spp_input` directly). Adding a `--problem` flag is mechanical but non-trivial (parallel BPP/SPP code paths, KPI reporting). Deferred until BPP exploration is profiled and a separate BPP benchmark script is warranted. Build still passes.
+- `examples/bpp_smoke.rs`: kept (used as a manual sanity harness for the BPP pipeline outside the main CLI).
+
+#### Key decisions / observations
+- **Config sharing.** The CLI's `--time-limit` is split into `explore_dur` and `compress_dur` per the SPP defaults. For BPP we sum them (no compression phase exists yet), so `-t 60` gives BPP a single 60s exploration budget.
+- **Warm-start.** BPP has no warm-start path (`bpp::io::import_solution` is `unimplemented!()` upstream). `LoadedInstance::Bpp` therefore carries no `ext_solution` field.
+- **`SparrowConfig` is `Copy`.** `let mut bpp_config = config;` is a value copy, so mutating `bpp_config.bpp_expl_cfg.time_limit` doesn't affect `config`. No clone needed.
+- **JSON sniffing.** SPP and BPP share `name`/`items` so we discriminate by `bins` (BPP-only) vs `strip_height`/`strip_width` (SPP-only). Robust as long as upstream extends neither shape.
+- **PowerShell + ConvertTo-Json is unsuitable for nesting deep coordinate arrays** (truncates and reorders). The `tools/make_bpp_input.ps1` helper does pure text substitution to preserve all item geometry exactly.
+
+#### Verification
+- `cargo build --all-targets` — clean (no errors, no warnings).
+- `cargo test --release --tests -- --test-threads=1` — 1 unit + 3 integration tests (`shirts`, `swim`, `trousers`) pass (~61s).
+- `cargo run --release -- -i data/input/swim_bpp.json -t 5` — loads BPP instance `swim_bpp` (48 items, 1 bin type), LBF places into 2 bins at 38.453 % density, exploration runs and converges, FINAL written, per-bin SVGs + JSON exported to `output/`.
+
+#### Known limitations
+- Bench runner has no BPP path yet (Task 5.5 deferred — see above).
+- BPP exploration on `swim_bpp` did not collapse 2 bins → 1 within the 5s and 20s budgets (loss ~1.62 M). This is consistent with the bin geometry chosen (square = strip_height) and with the lack of a BPP compression phase. Tuning is a Stage 6+ concern.
 
 ---
 

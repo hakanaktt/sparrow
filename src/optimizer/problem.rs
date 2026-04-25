@@ -258,6 +258,7 @@ mod tests {
             cfg.cde_config,
             cfg.poly_simpl_tolerance,
             cfg.min_item_separation,
+            cfg.min_hole_separation,
             cfg.narrow_concavity_cutoff_ratio,
         );
         let instance = jagua_rs::probs::spp::io::import_instance(&importer, &ext).unwrap();

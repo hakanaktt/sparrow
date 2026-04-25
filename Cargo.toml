@@ -47,6 +47,9 @@ live_svg = []
 only_final_svg = []
 simd = []
 
+[patch.crates-io]
+jagua-rs = { path = "vendor/jagua-rs" }
+
 [profile.dev]
 overflow-checks = true
 

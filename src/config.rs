@@ -35,6 +35,10 @@ pub struct SparrowConfig {
     /// Disabled if `None`.
     /// See [`jagua_rs::io::parser::Parser::new`] for more details.
     pub min_item_separation: Option<f32>,
+    /// Defines the minimum distance between an item nested inside another item's hole and the
+    /// surrounding hole's boundary. Independent of `min_item_separation`.
+    /// Disabled if `None`.
+    pub min_hole_separation: Option<f32>,
     /// Defines a maximum distance and area of a concavity to be considered "narrow" (which will be closed).
     /// Disabled if `None`.
     /// See [`jagua_rs::io::parser::Parser::new`] for more details.
@@ -130,4 +134,5 @@ pub const DEFAULT_SPARROW_CONFIG: SparrowConfig = SparrowConfig {
     poly_simpl_tolerance: Some(0.001),
     narrow_concavity_cutoff_ratio: Some((0.01, 0.01)),
     min_item_separation: None,
+    min_hole_separation: None,
 };

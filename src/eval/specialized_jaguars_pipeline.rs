@@ -74,8 +74,8 @@ pub fn collect_poly_collisions_in_detector_custom(
             QTHazPresence::None | QTHazPresence::Entire => {}
             QTHazPresence::Partial(_) => {
                 if !collector.contains_key(qt_haz.hkey) {
-                    let h_shape = &cde.hazards_map[qt_haz.hkey].shape;
-                    if cde.detect_containment_collision(shape, h_shape, qt_haz.entity) {
+                    let hazard = &cde.hazards_map[qt_haz.hkey];
+                    if cde.detect_containment_collision(shape, &hazard.shape, &hazard.holes, qt_haz.entity) {
                         collector.insert(qt_haz.hkey, qt_haz.entity);
                         if collector.early_terminate(shape) { return; }
                     }

@@ -66,7 +66,7 @@ fn main() -> Result<()> {
         ext_instance.name, n_batches, n_runs_per_iter, num_cpus::get_physical(), time_limit
     );
 
-    let importer = Importer::new(config.cde_config, config.poly_simpl_tolerance, config.min_item_separation, config.narrow_concavity_cutoff_ratio);
+    let importer = Importer::new(config.cde_config, config.poly_simpl_tolerance, config.min_item_separation, config.min_hole_separation, config.narrow_concavity_cutoff_ratio);
     let instance = jagua_rs::probs::spp::io::import_instance(&importer, &ext_instance)?;
 
     let mut final_solutions = vec![];

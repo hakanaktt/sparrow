@@ -1,0 +1,39 @@
+{
+  "name": "hole_sep_demo",
+  "items": [
+    {
+      "id": 0,
+      "demand": 1,
+      "allowed_orientations": [0.0],
+      "shape": {
+        "type": "polygon",
+        "data": {
+          "outer": [
+            [0.0, 0.0],
+            [100.0, 0.0],
+            [100.0, 100.0],
+            [0.0, 100.0]
+          ],
+          "inner": [
+            [
+              [25.0, 25.0],
+              [75.0, 25.0],
+              [75.0, 75.0],
+              [25.0, 75.0]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 1,
+      "demand": 1,
+      "allowed_orientations": [0.0],
+      "shape": {
+        "type": "rectangle",
+        "data": { "x_min": 0.0, "y_min": 0.0, "width": 40.0, "height": 40.0 }
+      }
+    }
+  ],
+  "strip_height": 110.0
+}

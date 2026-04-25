@@ -39,6 +39,9 @@ pub struct MainCli {
 
     #[arg(short = 'm', long, help = "Minimum separation distance between items and any other hazard (items, bin border, holes). Same units as the input geometry. Overrides the config default when set.")]
     pub min_item_separation: Option<f32>,
+
+    #[arg(long, help = "Minimum separation distance between an item nested inside another item's hole and the hole boundary. Independent of --min-item-separation. Same units as the input geometry.")]
+    pub min_hole_separation: Option<f32>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]

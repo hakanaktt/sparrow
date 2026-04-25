@@ -65,6 +65,13 @@ fn main() -> Result<()>{
         config.min_item_separation = if sep == 0.0 { None } else { Some(sep) };
         info!("[MAIN] min_item_separation = {}", sep);
     }
+    if let Some(sep) = args.min_hole_separation {
+        if sep < 0.0 {
+            bail!("--min-hole-separation must be >= 0");
+        }
+        config.min_hole_separation = if sep == 0.0 { None } else { Some(sep) };
+        info!("[MAIN] min_hole_separation = {}", sep);
+    }
 
     info!("[MAIN] configured to explore for {}s and compress for {}s", explore_dur.as_secs(), compress_dur.as_secs());
 
@@ -86,6 +93,7 @@ fn main() -> Result<()>{
         config.cde_config,
         config.poly_simpl_tolerance,
         config.min_item_separation,
+        config.min_hole_separation,
         config.narrow_concavity_cutoff_ratio,
     );
 

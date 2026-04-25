@@ -1,0 +1,58 @@
+{
+  "name": "holes_demo",
+  "items": [
+    {
+      "id": 0,
+      "demand": 1,
+      "allowed_orientations": [0.0],
+      "shape": {
+        "type": "polygon",
+        "data": {
+          "outer": [
+            [0.0, 0.0],
+            [100.0, 0.0],
+            [100.0, 100.0],
+            [0.0, 100.0]
+          ],
+          "inner": [
+            [
+              [20.0, 20.0],
+              [80.0, 20.0],
+              [80.0, 80.0],
+              [20.0, 80.0]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": 1,
+      "demand": 4,
+      "allowed_orientations": [0.0],
+      "shape": {
+        "type": "rectangle",
+        "data": { "x_min": 0.0, "y_min": 0.0, "width": 25.0, "height": 25.0 }
+      }
+    },
+    {
+      "id": 2,
+      "demand": 1,
+      "allowed_orientations": [0.0],
+      "shape": {
+        "type": "rectangle",
+        "data": { "x_min": 0.0, "y_min": 0.0, "width": 80.0, "height": 80.0 }
+      }
+    }
+  ],
+  "bins": [
+    {
+      "id": 0,
+      "shape": {
+        "type": "rectangle",
+        "data": { "x_min": 0.0, "y_min": 0.0, "width": 220.0, "height": 220.0 }
+      },
+      "stock": 10,
+      "cost": 1
+    }
+  ]
+}
